@@ -1,15 +1,17 @@
 """
-Stratum CLI — PostgreSQL Persistence Engine Driver
-===================================================
+Stratum CLI — PostgreSQL Persistence Engine Driver (Security-Hardened)
+======================================================================
 
-Educational Deep-Dive:
-----------------------
-In PostgreSQL:
-1. Role Isolation: A PostgreSQL ROLE created with `LOGIN` and assigned as the `OWNER` of a
-   specific database has full privileges on that database, but 0 access to peer databases.
-2. Custom Format Dumps (`pg_dump -Fc`):
-   Using PostgreSQL's custom binary format enables fast gzip compression and allows selective,
-   table-level parallel restores (`pg_restore --jobs=4`).
+Educational Security Deep-Dive:
+-------------------------------
+SQL Injection & Identifier Quoting:
+1. Identifier Quoting (`"{clean_ident}"`): Wrapping database and role names in double quotes
+   prevents collisions with reserved SQL keywords (e.g., `user`, `order`, `group`, `table`)
+   and enforces case-sensitive integrity.
+2. String Literal Escaping (`''`): In standard ANSI SQL and PostgreSQL, single quotes within
+   string literals must be escaped by doubling them (`'`).
+3. Null Byte Rejection (`\\0`): Terminating null bytes are rejected to prevent truncation attacks
+   at the C-string boundary inside `libpq`.
 """
 
 import datetime
@@ -46,6 +48,10 @@ class PostgresEngine(BaseDatabaseEngine):
         user_name = org.lower()
         app_password = password or generate_secure_password(24)
 
+        # Defensive null-byte check
+        if "\x00" in app_password or "\x00" in user_name or "\x00" in db_name:
+            raise ProvisioningError("Security Error: Null bytes are prohibited in database parameters.")
+
         if not is_container_running(self.target_container):
             raise ProvisioningError(
                 f"Container '{self.target_container}' is not running. "
@@ -57,14 +63,17 @@ class PostgresEngine(BaseDatabaseEngine):
         admin_user = db_env.get("POSTGRES_USER", "stratum_admin")
         admin_db = db_env.get("POSTGRES_DB", "stratum_db")
 
-        # 1. Create Role Idempotently
+        # SQL Escaping: Double all single quotes to prevent SQL breakout
+        escaped_password = app_password.replace("'", "''")
+
+        # 1. Create Role Idempotently with double-quoted identifier
         role_sql = f"""
         DO $$
         BEGIN
             IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{user_name}') THEN
-                CREATE ROLE {user_name} WITH LOGIN PASSWORD '{app_password}';
+                CREATE ROLE "{user_name}" WITH LOGIN PASSWORD '{escaped_password}';
             ELSE
-                ALTER ROLE {user_name} WITH PASSWORD '{app_password}';
+                ALTER ROLE "{user_name}" WITH PASSWORD '{escaped_password}';
             END IF;
         END
         $$;
@@ -73,14 +82,14 @@ class PostgresEngine(BaseDatabaseEngine):
         if code != 0:
             raise ProvisioningError(f"Failed to create PostgreSQL role '{user_name}':\n{err}")
 
-        # 2. Create Database with Owner
-        create_db_sql = f"CREATE DATABASE {db_name} OWNER {user_name};"
+        # 2. Create Database with double-quoted identifiers
+        create_db_sql = f'CREATE DATABASE "{db_name}" OWNER "{user_name}";'
         code_db, _, err_db = exec_in_container(self.target_container, ["psql", "-U", admin_user, "-d", admin_db, "-c", create_db_sql])
         if code_db != 0 and "already exists" not in err_db.lower():
             raise ProvisioningError(f"Failed to create PostgreSQL database '{db_name}':\n{err_db}")
 
-        # 3. Grant Privileges
-        grant_sql = f"GRANT ALL PRIVILEGES ON DATABASE {db_name} TO {user_name};"
+        # 3. Grant Privileges safely
+        grant_sql = f'GRANT ALL PRIVILEGES ON DATABASE "{db_name}" TO "{user_name}";'
         exec_in_container(self.target_container, ["psql", "-U", admin_user, "-d", admin_db, "-c", grant_sql])
 
         host = "stratum-database-nginx"
@@ -111,7 +120,13 @@ DATABASE_URL={uri}"""
         db_name = validate_tenant_identifier(org, service)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        tenant_dir = output_dir / org.lower()
+        # Path Traversal Prevention
+        base_dir = output_dir.resolve()
+        tenant_dir = (base_dir / org.lower()).resolve()
+
+        if not str(tenant_dir).startswith(str(base_dir)):
+            raise ProvisioningError(f"Path traversal detected in backup target directory: {tenant_dir}")
+
         tenant_dir.mkdir(parents=True, exist_ok=True)
         backup_file = tenant_dir / f"{db_name}_{timestamp}.pgdump"
 

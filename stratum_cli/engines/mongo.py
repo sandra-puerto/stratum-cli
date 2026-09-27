@@ -1,19 +1,23 @@
 """
-Stratum CLI — MongoDB Persistence Engine Driver
-================================================
+Stratum CLI — MongoDB Persistence Engine Driver (Security-Hardened)
+===================================================================
 
-Educational Deep-Dive:
-----------------------
-In MongoDB:
-1. Security Scoping: A tenant user created within database `sgpt_overleaf` with role `readWrite`
-   CANNOT inspect, list, or query collections in other databases (e.g. `isora_portal`).
-2. Authentication Database: By setting `authSource=<tenant_db>`, each tenant authenticates
-   strictly against their own database namespace rather than the shared `admin` database.
-3. Streaming Backups: Using `mongodump --archive --gzip` pipes the compressed binary stream
-   directly over Docker stdout to the host filesystem, preventing disk fill-up inside the container.
+Educational Security Deep-Dive:
+-------------------------------
+JavaScript / NoSQL Injection Prevention:
+When executing commands via `mongosh --eval "..."`, dynamically interpolating user
+strings using raw f-strings (`pwd: '{app_password}'`) introduces a Critical JavaScript
+Injection vector. If a user passes a password containing single quotes, semicolons, or JS
+code, the interpreter executes the injected payload with administrative privileges.
+
+Defensive Mitigation:
+Using `json.dumps(app_password)` encodes all input strings strictly into valid JSON literals,
+automatically escaping quotes (`\"`), backslashes (`\\\\`), control characters, and newlines.
+This guarantees that the input is parsed purely as a data primitive, never as executable code.
 """
 
 import datetime
+import json
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -58,25 +62,29 @@ class MongoEngine(BaseDatabaseEngine):
         root_user = db_env.get("MONGO_ROOT_USERNAME", "stratum_admin")
         root_pass = db_env.get("MONGO_ROOT_PASSWORD", "")
 
-        # JavaScript snippet evaluated securely via mongosh inside the container
+        # Defensive Encoding: json.dumps neutralizes any quote/injection attack vector
+        js_db_name = json.dumps(db_name)
+        js_user_name = json.dumps(user_name)
+        js_password = json.dumps(app_password)
+
         js_payload = f"""
-        db = db.getSiblingDB('{db_name}');
+        db = db.getSiblingDB({js_db_name});
         try {{
             db.createUser({{
-                user: '{user_name}',
-                pwd: '{app_password}',
+                user: {js_user_name},
+                pwd: {js_password},
                 roles: [
-                    {{ role: 'readWrite', db: '{db_name}' }},
-                    {{ role: 'dbAdmin', db: '{db_name}' }}
+                    {{ role: "readWrite", db: {js_db_name} }},
+                    {{ role: "dbAdmin", db: {js_db_name} }}
                 ]
             }});
-            print('SUCCESS_USER_CREATED');
+            print("SUCCESS_USER_CREATED");
         }} catch (e) {{
-            if (e.message && e.message.includes('already exists')) {{
-                db.changeUserPassword('{user_name}', '{app_password}');
-                print('SUCCESS_PASSWORD_UPDATED');
+            if (e.message && e.message.includes("already exists")) {{
+                db.changeUserPassword({js_user_name}, {js_password});
+                print("SUCCESS_PASSWORD_UPDATED");
             }} else {{
-                print('ERROR: ' + e);
+                print("ERROR: " + e);
             }}
         }}
         """
@@ -121,7 +129,13 @@ MONGO_URL={uri}"""
         db_name = validate_tenant_identifier(org, service)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        tenant_dir = output_dir / org.lower()
+        # Path Traversal Prevention: Ensure destination is strictly resolved within output_dir
+        base_dir = output_dir.resolve()
+        tenant_dir = (base_dir / org.lower()).resolve()
+
+        if not str(tenant_dir).startswith(str(base_dir)):
+            raise ProvisioningError(f"Path traversal detected in backup target directory: {tenant_dir}")
+
         tenant_dir.mkdir(parents=True, exist_ok=True)
         backup_file = tenant_dir / f"{db_name}_{timestamp}.archive.gz"
 

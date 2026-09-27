@@ -1,19 +1,17 @@
 """
-Stratum CLI — Core Configuration & Tenant Validation
-=====================================================
+Stratum CLI — Core Configuration & Tenant Validation (Security-Hardened)
+========================================================================
 
-Educational Architecture Overview:
+Educational Security Architecture:
 ----------------------------------
-In multi-tenant cloud platforms, naming collisions and insecure credentials are
-the leading causes of data leakages and lateral privilege escalations.
-
-This module enforces two mandatory principles:
-1. Deterministic Multi-Tenant Naming:
-   Every tenant resource is prefixed with `[org]_[service]` (e.g., `sgpt_overleaf`).
-   This creates a clean, searchable namespace across databases, storage volumes, and logs.
-2. Cryptographic Entropy:
-   Passwords are generated using Python's `secrets` module (CSPRNG), NOT the standard
-   pseudo-random `random` module, ensuring passwords are mathematically infeasible to predict.
+In multi-tenant platforms, input validation is the primary line of defense against:
+1. SQL & NoSQL Injection: Restricting identifiers to a strict, safe character set
+   (`^[a-z0-9_]+$`) ensures names cannot carry SQL/JS metacharacters.
+2. Reserved Namespace Collisions: Blocking reserved engine namespaces (`admin`, `postgres`,
+   `template0`, `config`, `local`) prevents accidental corruption of core system catalogs.
+3. Length Overflow Attacks: Enforcing engine-specific limits (PostgreSQL NAMEDATALEN = 63 bytes,
+   MongoDB namespace limit = 63 bytes).
+4. CSPRNG Randomness: Generating entropy using OS-level cryptographic RNGs (`secrets` module).
 """
 
 import os
@@ -33,26 +31,26 @@ DEFAULT_SEARCH_PATHS: List[Path] = [
     Path.cwd(),
 ]
 
+# System-reserved database and role names across Mongo & PostgreSQL
+RESERVED_NAMESPACES = {
+    "admin", "local", "config", "test",
+    "postgres", "template0", "template1", "public",
+    "root", "system", "master", "stratum", "stratum_admin", "stratum_db"
+}
+
 
 def find_stratum_root() -> Path:
     """
     Locates the active Stratum-Core repository root directory.
 
-    The search algorithm checks predefined paths for the existence of core components
-    (`dmz/docker-compose.yml` and `database/docker-compose.yml`).
-
     Returns:
         Path: The absolute path to the Stratum-Core directory.
-
-    Raises:
-        ConfigurationError: If no valid Stratum-Core root is found on the host.
     """
     for candidate_path in DEFAULT_SEARCH_PATHS:
         if (candidate_path / "dmz" / "docker-compose.yml").exists() and \
            (candidate_path / "database" / "docker-compose.yml").exists():
             return candidate_path.resolve()
 
-    # Fallback default for production systems
     fallback = Path("/opt/stratum-core")
     if fallback.exists():
         return fallback.resolve()
@@ -62,30 +60,20 @@ def find_stratum_root() -> Path:
 
 def parse_env_file(filepath: Path) -> Dict[str, str]:
     """
-    Safely parses a `.env` key-value configuration file into a dictionary.
+    Safely parses a `.env` key-value configuration file without shell execution.
 
     Junior Study Note:
-        Unlike using `source .env` in Bash (which executes arbitrary shell code and
-        poses severe Remote Code Execution / Injection risks), parsing line-by-line
-        guarantees that values are treated purely as static strings without code execution.
-
-    Args:
-        filepath (Path): Path to the target `.env` file.
-
-    Returns:
-        Dict[str, str]: Key-value mapping of extracted environment variables.
+        Parsing without `eval` or `source` eliminates Shell Injection vulnerabilities.
     """
     env_data: Dict[str, str] = {}
     if not filepath.exists():
         return env_data
 
     with open(filepath, "r", encoding="utf-8") as f:
-        for line_num, line in enumerate(f, start=1):
+        for line in f:
             line = line.strip()
-            # Ignore empty lines and comment blocks
             if not line or line.startswith("#"):
                 continue
-
             if "=" in line:
                 key, val = line.split("=", 1)
                 key = key.strip()
@@ -95,30 +83,14 @@ def parse_env_file(filepath: Path) -> Dict[str, str]:
 
 
 def get_database_env(root: Optional[Path] = None) -> Dict[str, str]:
-    """
-    Retrieves the parsed environment variables from `database/.env`.
-
-    Args:
-        root (Optional[Path]): Root directory of Stratum-Core. Defaults to auto-detection.
-
-    Returns:
-        Dict[str, str]: Parsed database environment variables (credentials, ports, images).
-    """
+    """Retrieves parsed database credentials and configuration."""
     root_path = root or find_stratum_root()
     env_file = root_path / "database" / ".env"
     return parse_env_file(env_file)
 
 
 def get_gateway_env(root: Optional[Path] = None) -> Dict[str, str]:
-    """
-    Retrieves the parsed environment variables from `gateway/.env`.
-
-    Args:
-        root (Optional[Path]): Root directory of Stratum-Core. Defaults to auto-detection.
-
-    Returns:
-        Dict[str, str]: Parsed gateway environment variables (tunnel tokens, profiles).
-    """
+    """Retrieves parsed gateway tunnel credentials and active profiles."""
     root_path = root or find_stratum_root()
     env_file = root_path / "gateway" / ".env"
     return parse_env_file(env_file)
@@ -126,23 +98,16 @@ def get_gateway_env(root: Optional[Path] = None) -> Dict[str, str]:
 
 def generate_secure_password(length: int = 24) -> str:
     """
-    Generates a high-entropy, shell-safe cryptographic password.
+    Generates a cryptographically secure, shell-safe alphanumeric password.
 
     Junior Study Note:
-        The `secrets` library is backed by the operating system's cryptographic
-        source (`/dev/urandom` on Linux or `CryptGenRandom` on Windows). This prevents
-        PRNG state reconstruction attacks common with `random.random()`.
-
-    Args:
-        length (int): Desired password length. Defaults to 24 characters (140+ bits entropy).
-
-    Returns:
-        str: A cryptographically strong, multi-class random password.
+        Characters are selected from an alphanumeric set plus safe punctuation (`!@#%^*-_=+`),
+        avoiding single quotes (`'`), double quotes (`"`), backticks (``` ` ```), dollar signs (`$`),
+        and backslashes (`\\`) that could cause shell or escaping edge cases.
     """
     alphabet = string.ascii_letters + string.digits + "!@#%^*-_=+"
     while True:
         password = "".join(secrets.choice(alphabet) for _ in range(length))
-        # Ensure character class diversity: upper, lower, digit, and symbol
         if (any(c.islower() for c in password)
                 and any(c.isupper() for c in password)
                 and any(c.isdigit() for c in password)
@@ -150,33 +115,66 @@ def generate_secure_password(length: int = 24) -> str:
             return password
 
 
+def sanitize_input_string(val: str, max_length: int = 64) -> str:
+    """
+    Strips dangerous control characters, newlines (CRLF), and truncates to max length.
+    """
+    if not val:
+        return ""
+    # Strip carriage returns, newlines, and null bytes (CRLF injection prevention)
+    sanitized = re.sub(r"[\r\n\x00-\x1f\x7f-\x9f]", "", val.strip())
+    return sanitized[:max_length]
+
+
 def validate_tenant_identifier(org: str, service: str) -> str:
     """
-    Validates and normalizes tenant organization and service names.
+    Validates and standardizes the tenant namespace pattern: `[org]_[service]`.
 
-    Enforces the platform naming convention: `[org]_[service]`
-    Example: `sgpt` + `overleaf` -> `sgpt_overleaf`
+    Offensive & Defensive Security Checks:
+    1. Rejects path traversal characters (`/`, `\\`, `..`).
+    2. Rejects SQL/JS metacharacters (`'`, `"`, `;`, `--`, `/*`, `$`, `{`, `}`).
+    3. Prevents namespace collision with reserved system databases.
+    4. Enforces the 63-character limit of PostgreSQL identifiers.
 
     Args:
-        org (str): Organization or company identifier (e.g., 'sgpt', 'isora').
-        service (str): Application or service name (e.g., 'overleaf', 'nextcloud').
+        org (str): Organization identifier (e.g. 'sgpt').
+        service (str): Service identifier (e.g. 'overleaf').
 
     Returns:
-        str: Standardized database and tenant namespace identifier.
+        str: Standardized, validated namespace identifier (e.g., 'sgpt_overleaf').
 
     Raises:
-        TenantValidationError: If either identifier contains illegal characters or is empty.
+        TenantValidationError: If identifiers fail security validation.
     """
     clean_org = re.sub(r"[^a-zA-Z0-9]", "", org.strip().lower())
-    clean_svc = re.sub(r"[^a-zA-Z0-9_-]", "", service.strip().lower())
+    clean_svc = re.sub(r"[^a-zA-Z0-9_]", "", service.strip().lower())
 
     if not clean_org:
         raise TenantValidationError(
-            f"Invalid organization name: '{org}'. Must contain alphanumeric characters."
+            f"Invalid organization name: '{org}'. Must contain at least one alphanumeric character."
         )
     if not clean_svc:
         raise TenantValidationError(
             f"Invalid service name: '{service}'. Must contain alphanumeric characters."
         )
 
-    return f"{clean_org}_{clean_svc}"
+    if clean_org in RESERVED_NAMESPACES or clean_svc in RESERVED_NAMESPACES:
+        raise TenantValidationError(
+            f"Rejected reserved identifier: '{clean_org}' or '{clean_svc}' is a system-reserved namespace."
+        )
+
+    db_name = f"{clean_org}_{clean_svc}"
+
+    # PostgreSQL NAMEDATALEN limit is 63 bytes (64 with null terminator)
+    if len(db_name) > 63:
+        raise TenantValidationError(
+            f"Identifier '{db_name}' exceeds the maximum allowed length of 63 characters (length: {len(db_name)})."
+        )
+
+    # Database identifiers must start with an alphabetic character or underscore
+    if not clean_org[0].isalpha() and clean_org[0] != '_':
+        raise TenantValidationError(
+            f"Organization identifier '{clean_org}' must start with an alphabetic letter."
+        )
+
+    return db_name
