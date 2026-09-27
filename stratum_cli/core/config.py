@@ -66,19 +66,26 @@ def parse_env_file(filepath: Path) -> Dict[str, str]:
         Parsing without `eval` or `source` eliminates Shell Injection vulnerabilities.
     """
     env_data: Dict[str, str] = {}
-    if not filepath.exists():
-        return env_data
+    try:
+        if not filepath.exists():
+            return env_data
 
-    with open(filepath, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" in line:
-                key, val = line.split("=", 1)
-                key = key.strip()
-                val = val.strip().strip("'\"")
-                env_data[key] = val
+        with open(filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    key, val = line.split("=", 1)
+                    key = key.strip()
+                    val = val.strip().strip("'\"")
+                    env_data[key] = val
+    except PermissionError:
+        raise ConfigurationError(
+            f"Permission denied reading '{filepath}'. "
+            "The configuration file has restricted permissions (e.g. 600). "
+            "Please run stratum with sudo: 'sudo stratum ...'"
+        )
     return env_data
 
 

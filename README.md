@@ -8,7 +8,8 @@
 > **Autonomous Multi-Tenant Persistence & Lifecycle Orchestrator for Stratum-Core.**  
 > *Isolation by design, not by discipline.*  
 > 
-> 📖 **[Guía de Uso & Manual de Operaciones en Español](docs/MANUAL_DE_USO.md)**
+> 📖 **[Guía de Uso & Manual de Operaciones en Español](docs/MANUAL_DE_USO.md)**  
+> 📚 **[Overleaf Community Edition Integration & Architecture](docs/OVERLEAF_INTEGRATION.md)**
 
 ---
 

@@ -16,6 +16,8 @@
 6. [Flujo 4: Monitoreo, Salud y Diagnóstico (Doctor)](#6-flujo-4-monitoreo-salud-y-diagnóstico-doctor)
 7. [Tabla Rápida de Comandos (Cheat Sheet)](#7-tabla-rápida-de-comandos-cheat-sheet)
 
+> 📚 **Ver también:** [Arquitectura e Integración con Overleaf CE (Casos Borde y Limitaciones)](OVERLEAF_INTEGRATION.md)
+
 ---
 
 ## 1. Introducción y Conceptos Básicos

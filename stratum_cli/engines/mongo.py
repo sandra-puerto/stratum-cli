@@ -95,16 +95,12 @@ class MongoEngine(BaseDatabaseEngine):
         cmd.extend(["--eval", js_payload])
 
         code, out, err = exec_in_container(self.target_container, cmd)
-        
-        # If auth failed, attempt localhost exception mode (without -u/-p)
-        if code != 0 and "Authentication failed" in (err + out):
-            cmd_fallback = ["mongosh", "--quiet", "--eval", js_payload]
-            code, out, err = exec_in_container(self.target_container, cmd_fallback)
 
         if code != 0 or "ERROR:" in out:
+            error_details = (err.strip() + "\n" + out.strip()).strip()
             raise ProvisioningError(
-                f"MongoDB tenant provisioning failed:\nStdout: {out}\nStderr: {err}\n"
-                f"Check that MONGO_ROOT_USERNAME and MONGO_ROOT_PASSWORD in database/.env match the database credentials."
+                f"MongoDB tenant provisioning failed:\n{error_details}\n"
+                f"Tip: Verify that user '{root_user}' and the password in database/.env match the initialized MongoDB root credentials."
             )
 
         host = "stratum-database-nginx"
