@@ -16,6 +16,7 @@ SQL Injection & Identifier Quoting:
 
 import datetime
 import subprocess
+import urllib.parse
 from pathlib import Path
 from typing import Optional
 
@@ -94,7 +95,8 @@ class PostgresEngine(BaseDatabaseEngine):
 
         host = "stratum-database-nginx"
         port = 5432
-        uri = f"postgresql://{user_name}:{app_password}@{host}:{port}/{db_name}"
+        safe_password = urllib.parse.quote_plus(app_password)
+        uri = f"postgresql://{user_name}:{safe_password}@{host}:{port}/{db_name}"
 
         env_block = f"""# --- Stratum Boundary Persistence (Tenant: {org.upper()}) ---
 STRATUM_DB_HOST={host}

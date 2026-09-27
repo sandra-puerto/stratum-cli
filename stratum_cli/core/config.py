@@ -112,13 +112,13 @@ def generate_secure_password(length: int = 24) -> str:
         avoiding single quotes (`'`), double quotes (`"`), backticks (``` ` ```), dollar signs (`$`),
         and backslashes (`\\`) that could cause shell or escaping edge cases.
     """
-    alphabet = string.ascii_letters + string.digits + "!@#%^*-_=+"
+    alphabet = string.ascii_letters + string.digits + "-_"
     while True:
         password = "".join(secrets.choice(alphabet) for _ in range(length))
         if (any(c.islower() for c in password)
                 and any(c.isupper() for c in password)
                 and any(c.isdigit() for c in password)
-                and any(c in "!@#%^*-_=+" for c in password)):
+                and any(c in "-_" for c in password)):
             return password
 
 

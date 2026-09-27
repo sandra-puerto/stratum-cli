@@ -19,6 +19,7 @@ This guarantees that the input is parsed purely as a data primitive, never as ex
 import datetime
 import json
 import subprocess
+import urllib.parse
 from pathlib import Path
 from typing import Optional
 
@@ -105,7 +106,8 @@ class MongoEngine(BaseDatabaseEngine):
 
         host = "stratum-database-nginx"
         port = 27017
-        uri = f"mongodb://{user_name}:{app_password}@{host}:{port}/{db_name}?authSource={db_name}"
+        safe_password = urllib.parse.quote_plus(app_password)
+        uri = f"mongodb://{user_name}:{safe_password}@{host}:{port}/{db_name}?authSource={db_name}"
 
         env_block = f"""# --- Stratum Boundary Persistence (Tenant: {org.upper()}) ---
 STRATUM_DB_HOST={host}

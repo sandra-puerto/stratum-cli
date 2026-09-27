@@ -12,6 +12,8 @@ In Redis:
 from pathlib import Path
 from typing import Optional
 
+import urllib.parse
+
 from ..core.config import find_stratum_root, get_database_env, validate_tenant_identifier
 from .base import BaseDatabaseEngine, ProvisioningResult, register_engine
 
@@ -36,7 +38,8 @@ class RedisEngine(BaseDatabaseEngine):
 
         host = "stratum-database-nginx"
         port = 6379
-        uri = f"redis://:{redis_pass}@{host}:{port}/0"
+        safe_pass = urllib.parse.quote_plus(redis_pass)
+        uri = f"redis://:{safe_pass}@{host}:{port}/0"
 
         env_block = f"""# --- Stratum Boundary Persistence (Redis: {org.upper()}) ---
 REDIS_HOST={host}
