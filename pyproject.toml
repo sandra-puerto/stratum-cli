@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stratum-cli"
+version = "1.0.0"
+description = "Autonomous Multi-Tenant CLI and Lifecycle Orchestrator for Stratum-Core"
+readme = "README.md"
+authors = [
+    { name = "Sandra Gabriela Puerto Torres", email = "contacto@sandrapuerto.com" }
+]
+license = { text = "MIT with Mandatory Attribution" }
+keywords = ["stratum", "docker", "multi-tenant", "zero-trust", "devops", "orchestration", "database-provisioner"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Database :: Database Engines/Servers",
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+stratum = "stratum_cli.cli:main"
+
+[project.urls]
+Homepage = "https://sandrapuerto.com"
+Repository = "https://github.com/sandrapuerto/stratum-cli"
+Issues = "https://github.com/sandrapuerto/stratum-cli/issues"
+Documentation = "https://github.com/sandrapuerto/stratum-cli#readme"

@@ -1,0 +1,68 @@
+================================================================================
+STRATUM-CLI — LICENSE
+Enhanced MIT License with Mandatory Architectural Attribution & Security Reporting
+================================================================================
+
+Copyright (c) 2026 Sandra Gabriela Puerto Torres
+All rights reserved.
+
+--------------------------------------------------------------------------------
+1. GRANT OF RIGHTS (COMMERCIAL & MULTI-ORGANIZATION USE)
+--------------------------------------------------------------------------------
+
+Permission is hereby granted, free of charge, to any person or entity obtaining
+a copy of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do so,
+for personal, academic, multi-organization, or commercial purposes (including
+commercial hosting, SaaS infrastructure, Managed Service Providers (MSP), and
+client multi-tenancy), subject to the following mandatory conditions:
+
+--------------------------------------------------------------------------------
+2. MANDATORY CONDITIONS
+--------------------------------------------------------------------------------
+
+The grant of rights set forth in Section 1 is expressly conditioned upon strict
+compliance with the following:
+
+  (a) MANDATORY ARCHITECTURAL ATTRIBUTION.
+
+      Any person or organization that uses, deploys, forks, redistributes, or
+      incorporates the Software must satisfy the following attribution requirements:
+
+      1. SOURCE & TECHNICAL DOCUMENTATION: Retain the original copyright notice
+         and the attribution credit ("Stratum-CLI by Sandra Gabriela Puerto Torres
+         — https://sandrapuerto.com") in all project READMEs, repository documentation,
+         and package metadata.
+
+      2. PROVENANCE INTEGRITY: Derivative works or commercial services using
+         this tool shall not remove, obscure, or alter the architectural
+         provenance credits to the original author.
+
+  (b) SECURITY VULNERABILITY REPORTING.
+
+      Any person or organization that discovers a potential security
+      vulnerability or privilege escalation flaw in the Software shall
+      report it promptly and privately to the copyright holder at:
+
+          contacto@sandrapuerto.com
+
+      The report shall not be disclosed publicly prior to coordination with
+      the copyright holder.
+
+--------------------------------------------------------------------------------
+3. DISCLAIMER OF WARRANTY AND LIMITATION OF LIABILITY
+--------------------------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+END OF LICENSE
+================================================================================
