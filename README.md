@@ -6,7 +6,9 @@
 [![License](https://img.shields.io/badge/License-Enhanced%20MIT-10b981?style=for-the-badge)](LICENSE)
 
 > **Autonomous Multi-Tenant Persistence & Lifecycle Orchestrator for Stratum-Core.**  
-> *Isolation by design, not by discipline.*
+> *Isolation by design, not by discipline.*  
+> 
+> 📖 **[Guía de Uso & Manual de Operaciones en Español](docs/MANUAL_DE_USO.md)**
 
 ---
 
