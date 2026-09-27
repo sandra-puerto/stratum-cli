@@ -1,25 +1,13 @@
 """
-Stratum CLI — Gateway Command Controller (Security-Hardened)
-============================================================
-
-Educational Security Deep-Dive:
--------------------------------
-CRLF / .env Injection Prevention:
-When appending or updating lines in `.env` files, an unvalidated token containing
-newline characters (`\\r` or `\\n`) could inject unauthorized environment variables
-(e.g., `\\nADMIN_OVERRIDE=true\\n`).
-
-Defensive Mitigation:
-1. Strip all CRLF and control characters using `sanitize_input_string`.
-2. Validate that the token matches expected Cloudflare JWT/base64 pattern.
-3. Write files atomically using temporary buffer flushes.
+Stratum CLI — Gateway Command Controller
+========================================
 """
 
 import re
 import sys
 from pathlib import Path
 from ..core.config import find_stratum_root, get_gateway_env, sanitize_input_string
-from ..core.exceptions import ConfigurationError
+from ..core.i18n import t
 
 
 def add_tenant_tunnel(org: str, token: str):
@@ -37,7 +25,6 @@ def add_tenant_tunnel(org: str, token: str):
         print(f"[-] Error: '{env_path}' does not exist. Initialize gateway/.env first.", file=sys.stderr)
         sys.exit(1)
 
-    # Sanitize and strip CRLF / control chars
     clean_org = re.sub(r"[^a-zA-Z0-9_-]", "", org.strip().upper())
     clean_token = sanitize_input_string(token, max_length=512)
 
@@ -91,12 +78,11 @@ def add_tenant_tunnel(org: str, token: str):
         f.writelines(new_lines)
 
     print("=" * 80)
-    print(f"[+] STRATUM GATEWAY TENANT REGISTRATION SUCCESSFUL")
+    print(t("gw_success_title"))
     print("=" * 80)
     print(f"  Organization ....... : {clean_org}")
-    print(f"  Tunnel Token ....... : {clean_token[:12]}... (persisted in gateway/.env)")
-    print(f"  Target File ........ : {env_path}")
+    print(t("gw_token_stored", token=clean_token[:12]))
+    print(t("gw_target_file", file=env_path))
     print("-" * 80)
-    print("  To activate this tenant tunnel immediately on your VPS without downtime:")
-    print("  $ cd /opt/stratum-core/gateway && docker compose up -d")
+    print(t("gw_reload_hint"))
     print("=" * 80)

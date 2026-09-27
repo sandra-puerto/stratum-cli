@@ -1,17 +1,13 @@
 """
 Stratum CLI — Database Command Controller
 =========================================
-
-Educational Design Note:
-------------------------
-This controller acts as the orchestrator between the CLI input layer and the
-database engine strategy providers (`stratum_cli.engines.*`).
 """
 
 import sys
 from typing import Optional
 from ..engines import get_engine, list_registered_engines
 from ..core.exceptions import StratumError
+from ..core.i18n import t
 
 
 def create_tenant_db(org: str, service: str, engine: str, password: Optional[str] = None):
@@ -29,27 +25,27 @@ def create_tenant_db(org: str, service: str, engine: str, password: Optional[str
         res = driver.provision(org=org, service=service, password=password)
 
         print("=" * 80)
-        print(f"[+] STRATUM MULTI-TENANT PROVISIONING SUCCESSFUL ({res.engine_name})")
+        print(t("prov_success_title", engine=res.engine_name))
         print("=" * 80)
-        print(f"  Organization ....... : {res.tenant_org.upper()}")
-        print(f"  Service ............ : {res.tenant_service}")
-        print(f"  Tenant Database .... : {res.database_name}")
-        print(f"  Application User ... : {res.username}")
-        print(f"  Generated Password . : {res.password}")
-        print(f"  Boundary Proxy ..... : {res.boundary_host}:{res.boundary_port}")
+        print(t("prov_org", org=res.tenant_org.upper()))
+        print(t("prov_service", service=res.tenant_service))
+        print(t("prov_db", db=res.database_name))
+        print(t("prov_user", user=res.username))
+        print(t("prov_password", password=res.password))
+        print(t("prov_proxy", host=res.boundary_host, port=res.boundary_port))
         print("-" * 80)
-        print("  Connection URI:")
+        print(t("prov_uri_header"))
         print(f"  {res.connection_uri}")
         print("-" * 80)
-        print("  Copy-Paste for Tenant .env file:")
+        print(t("prov_env_header"))
         print(f"\n{res.env_snippet}\n")
         print("=" * 80)
 
     except StratumError as err:
-        print(f"[-] Provisioning Error: {err.message}", file=sys.stderr)
+        print(f"[-] Error: {err.message}", file=sys.stderr)
         sys.exit(err.exit_code)
     except Exception as exc:
-        print(f"[-] Unexpected Error during provisioning: {exc}", file=sys.stderr)
+        print(f"[-] Unexpected Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
 

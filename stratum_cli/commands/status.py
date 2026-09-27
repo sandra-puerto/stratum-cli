@@ -1,9 +1,10 @@
 """
-Platform Health & Status Inspector
+Stratum CLI — Platform Health & Status Inspector
+================================================
 """
 
-import subprocess
 from ..core.docker import is_docker_available, get_container_health
+from ..core.i18n import t
 
 
 CORE_CONTAINERS = [
@@ -25,9 +26,9 @@ def show_platform_status():
         return
 
     print("=" * 80)
-    print(" STRATUM-CORE — PLATFORM STATUS & HEALTH OVERVIEW")
+    print(t("status_title"))
     print("=" * 80)
-    print(f"{'COMPONENT / ROLE':<30} | {'CONTAINER NAME':<34} | {'STATUS':<12}")
+    print(f"{t('status_col_role'):<30} | {t('status_col_container'):<34} | {t('status_col_health'):<12}")
     print("-" * 80)
 
     for role, container in CORE_CONTAINERS:

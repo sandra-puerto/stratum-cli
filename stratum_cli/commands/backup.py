@@ -1,13 +1,13 @@
 """
 Stratum CLI — Backup Command Controller
 =======================================
-Orchestrates isolated tenant backups via the respective database engine provider.
 """
 
 import sys
 from pathlib import Path
 from ..engines import get_engine
 from ..core.exceptions import StratumError
+from ..core.i18n import t
 
 
 def backup_tenant_db(org: str, service: str, engine: str, output_dir: str = "/opt/backups"):
@@ -27,17 +27,17 @@ def backup_tenant_db(org: str, service: str, engine: str, output_dir: str = "/op
 
         size_kb = backup_file.stat().st_size / 1024.0
         print("=" * 80)
-        print(f"[+] STRATUM TENANT BACKUP COMPLETED ({driver.engine_name})")
+        print(t("bk_success_title", engine=driver.engine_name))
         print("=" * 80)
         print(f"  Organization ....... : {org.upper()}")
         print(f"  Service ............ : {service}")
-        print(f"  Artifact ........... : {backup_file}")
-        print(f"  Archive Size ....... : {size_kb:.2f} KB")
+        print(t("bk_artifact", file=backup_file))
+        print(t("bk_size", size=f"{size_kb:.2f}"))
         print("=" * 80)
 
     except StratumError as err:
-        print(f"[-] Backup Error: {err.message}", file=sys.stderr)
+        print(t("bk_error", err=err.message), file=sys.stderr)
         sys.exit(err.exit_code)
     except Exception as exc:
-        print(f"[-] Unexpected Error during backup: {exc}", file=sys.stderr)
+        print(f"[-] Unexpected Error: {exc}", file=sys.stderr)
         sys.exit(1)

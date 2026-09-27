@@ -1,26 +1,20 @@
 """
 Stratum CLI — Platform Doctor & Diagnostics
 ===========================================
-
-Educational Purpose:
---------------------
-`stratum doctor` is a diagnostic suite inspired by `brew doctor` and `flutter doctor`.
-It helps junior engineers and platform operators quickly pinpoint infrastructure
-misconfigurations (kernel limits, memory pressure, missing networks, file permission leaks).
 """
 
 import os
-import shutil
 import subprocess
 from pathlib import Path
 from ..core.config import find_stratum_root
-from ..core.docker import is_docker_available, get_container_health
+from ..core.docker import is_docker_available
+from ..core.i18n import t
 
 
 def run_diagnostics():
     """Runs a complete diagnostic check of host system, kernel, and Docker platform."""
     print("=" * 80)
-    print(" STRATUM PLATFORM DIAGNOSTICS & SYSTEM DOCTOR")
+    print(t("doc_title"))
     print("=" * 80)
 
     checks_passed = 0
@@ -29,19 +23,19 @@ def run_diagnostics():
     # 1. Docker Daemon Check
     total_checks += 1
     if is_docker_available():
-        print("[PASS] 1. Docker Daemon: Responsive and accessible.")
+        print(f"{t('doc_pass')} {t('doc_docker_ok')}")
         checks_passed += 1
     else:
-        print("[FAIL] 1. Docker Daemon: Not running or current user lacks docker group privileges.")
+        print(f"{t('doc_fail')} {t('doc_docker_fail')}")
 
     # 2. Stratum Core Root Directory Check
     total_checks += 1
     root = find_stratum_root()
     if root.exists() and (root / "dmz").exists() and (root / "database").exists():
-        print(f"[PASS] 2. Stratum Core Root: Located at '{root}'.")
+        print(f"{t('doc_pass')} {t('doc_root_ok', root=root)}")
         checks_passed += 1
     else:
-        print(f"[WARN] 2. Stratum Core Root: Not found at standard locations (/opt/stratum-core).")
+        print(f"{t('doc_warn')} {t('doc_root_warn')}")
 
     # 3. Stratum DMZ Network Check
     total_checks += 1
@@ -53,12 +47,12 @@ def run_diagnostics():
             check=False
         )
         if res.returncode == 0:
-            print("[PASS] 3. Shared DMZ Network: 'stratum_dmz' is active.")
+            print(f"{t('doc_pass')} {t('doc_dmz_ok')}")
             checks_passed += 1
         else:
-            print("[WARN] 3. Shared DMZ Network: 'stratum_dmz' not found. Run 'docker compose up -d' in dmz/.")
+            print(f"{t('doc_warn')} {t('doc_dmz_warn')}")
     except Exception:
-        print("[FAIL] 3. Shared DMZ Network: Unable to inspect docker networks.")
+        print(f"{t('doc_fail')} {t('doc_dmz_fail')}")
 
     # 4. Kernel Memory Overcommit Check (Redis recommendation)
     total_checks += 1
@@ -66,12 +60,12 @@ def run_diagnostics():
     if overcommit_path.exists():
         val = overcommit_path.read_text().strip()
         if val == "1":
-            print("[PASS] 4. Kernel Overcommit: vm.overcommit_memory is tuned to '1'.")
+            print(f"{t('doc_pass')} {t('doc_overcommit_ok')}")
             checks_passed += 1
         else:
-            print(f"[WARN] 4. Kernel Overcommit: vm.overcommit_memory is '{val}' (recommended: '1' for Redis).")
+            print(f"{t('doc_warn')} {t('doc_overcommit_warn', val=val)}")
     else:
-        print("[INFO] 4. Kernel Overcommit: Not a Linux host (skipping /proc check).")
+        print(f"{t('doc_info')} {t('doc_overcommit_skip')}")
         checks_passed += 1
 
     # 5. File Permission Security Audit on .env files
@@ -81,15 +75,14 @@ def run_diagnostics():
         env_file = root / comp / ".env"
         if env_file.exists():
             st_mode = oct(env_file.stat().st_mode & 0o777)
-            # On Linux, 0o600 or 0o400 is ideal
             if os.name != "nt" and st_mode not in ("0o600", "0o400"):
-                print(f"[WARN] 5. Permissions: '{env_file}' has permissions {st_mode} (recommended: chmod 600).")
+                print(f"{t('doc_warn')} {t('doc_perm_warn', file=env_file, mode=st_mode)}")
                 env_leak = True
 
     if not env_leak:
-        print("[PASS] 5. File Permissions: Secret .env files are secure.")
+        print(f"{t('doc_pass')} {t('doc_perm_ok')}")
         checks_passed += 1
 
     print("-" * 80)
-    print(f" Diagnostic Summary: {checks_passed}/{total_checks} checks passed.")
+    print(t("doc_summary", passed=checks_passed, total=total_checks))
     print("=" * 80)
